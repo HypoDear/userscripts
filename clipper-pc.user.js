@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         剪藏
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      4.0
-// @description  提取网页正文，编辑后写入在线表格空白行；支持按标题关键词查询正文
+// @version      5.0
+// @description  提取网页正文，编辑后写入在线表格空白行；支持多子表、按标题关键词查询正文
 // @author       HypoDear
 // @match        *://*/*
 // @noframes
@@ -88,14 +88,31 @@
     return v ? v.trim() : '';
   }
 
-  function getConf() {
+  function getBase() {
     const fileID = askOnce('file_id', '首次配置：请输入表格文件 ID（纯 ID，不带网址）');
     if (!fileID) return null;
-    const sheetID = askOnce('sheet_id', '首次配置：请输入子表 ID（网址里 tab= 后那段）');
-    if (!sheetID) return null;
     const token = askOnce('token', '首次配置：请输入 Authorization token');
     if (!token) return null;
-    return { fileID: fileID, sheetID: sheetID, token: token };
+    return { fileID: fileID, token: token };
+  }
+
+  function loadSheets() {
+    try {
+      const arr = JSON.parse(GM_getValue('sheets', '[]'));
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveSheets(list) {
+    GM_setValue('sheets', JSON.stringify(list));
+  }
+
+  function confFor(sheet) {
+    const base = getBase();
+    if (!base) return null;
+    return { fileID: base.fileID, token: base.token, sheetID: sheet.id, sheetName: sheet.name };
   }
 
   function mcpCall(conf, toolName, args) {
@@ -167,22 +184,28 @@
     return b;
   }
 
-  function doRecord() {
-    const conf = getConf();
+  function mkMask() {
+    const mask = document.createElement('div');
+    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px';
+    mask.onclick = function (e) { if (e.target === mask) mask.remove(); };
+    return mask;
+  }
+
+  function doRecord(sheet) {
+    const conf = confFor(sheet);
     if (!conf) return;
     const picked = extractText();
     showRecordPanel(conf, picked.title, picked.body);
   }
 
   function showRecordPanel(conf, title, body) {
-    const mask = document.createElement('div');
-    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px';
+    const mask = mkMask();
 
     const box = document.createElement('div');
     box.style.cssText = 'background:#fff;width:100%;max-width:600px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;box-sizing:border-box';
 
     const h = document.createElement('div');
-    h.textContent = '记录到表格';
+    h.textContent = '记录到「' + conf.sheetName + '」';
     h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:10px;color:#222';
 
     const titleInput = document.createElement('input');
@@ -224,7 +247,7 @@
         const rowIndex = colA.length;
         return writeRow(conf, rowIndex, nowStr(), finalTitle, finalBody).then(function () {
           mask.remove();
-          showToast('已记录到第 ' + (rowIndex + 1) + ' 行');
+          showToast('已记录到「' + conf.sheetName + '」第 ' + (rowIndex + 1) + ' 行');
         });
       }).catch(function (e) {
         saveBtn.disabled = false;
@@ -248,15 +271,14 @@
     bar.append(saveBtn, reBtn, closeBtn);
     box.append(h, titleInput, count, ta, bar);
     mask.append(box);
-    mask.onclick = function (e) { if (e.target === mask) mask.remove(); };
     document.body.append(mask);
     titleInput.focus();
   }
 
-  function doQuery() {
-    const conf = getConf();
+  function doQuery(sheet) {
+    const conf = confFor(sheet);
     if (!conf) return;
-    const kw = prompt('请输入标题关键词：', '');
+    const kw = prompt('在「' + conf.sheetName + '」中查询标题关键词：', '');
     if (!kw) return;
     readColumn(conf, 1).then(function (titles) {
       let matchRow = -1;
@@ -278,8 +300,7 @@
   }
 
   function showResult(title, body) {
-    const mask = document.createElement('div');
-    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px';
+    const mask = mkMask();
     const box = document.createElement('div');
     box.style.cssText = 'background:#fff;width:100%;max-width:600px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;box-sizing:border-box';
     const h = document.createElement('div');
@@ -305,31 +326,148 @@
     bar.append(copyBtn, closeBtn);
     box.append(h, count, ta, bar);
     mask.append(box);
-    mask.onclick = function (e) { if (e.target === mask) mask.remove(); };
+    document.body.append(mask);
+  }
+
+  function manageSheets() {
+    const mask = mkMask();
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;width:100%;max-width:420px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:auto';
+
+    const h = document.createElement('div');
+    h.textContent = '管理子表';
+    h.style.cssText = 'font-size:16px;font-weight:600;color:#222;text-align:center';
+
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:8px';
+
+    function renderList() {
+      list.innerHTML = '';
+      const sheets = loadSheets();
+      if (!sheets.length) {
+        const empty = document.createElement('div');
+        empty.textContent = '暂无子表，请在下方添加';
+        empty.style.cssText = 'font-size:13px;color:#999;text-align:center;padding:8px 0';
+        list.append(empty);
+      }
+      sheets.forEach(function (s, idx) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;border:1px solid #eee;border-radius:8px;padding:8px 10px';
+        const info = document.createElement('div');
+        info.style.cssText = 'flex:1;min-width:0';
+        const nm = document.createElement('div');
+        nm.textContent = s.name;
+        nm.style.cssText = 'font-size:14px;color:#222;font-weight:500';
+        const id = document.createElement('div');
+        id.textContent = s.id;
+        id.style.cssText = 'font-size:12px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+        info.append(nm, id);
+        const del = mkBtn('删除', '#fff', '#d93025');
+        del.style.cssText += 'border:1px solid #f0c0bc;padding:6px 10px;font-size:13px';
+        del.onclick = function () {
+          const cur = loadSheets();
+          cur.splice(idx, 1);
+          saveSheets(cur);
+          renderList();
+        };
+        row.append(info, del);
+        list.append(row);
+      });
+    }
+    renderList();
+
+    const addWrap = document.createElement('div');
+    addWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;border-top:1px solid #eee;padding-top:10px';
+    const nameIn = document.createElement('input');
+    nameIn.type = 'text';
+    nameIn.placeholder = '显示名称，如：知识库';
+    nameIn.style.cssText = 'border:1px solid #ddd;border-radius:8px;padding:9px 10px;font-size:14px;box-sizing:border-box';
+    const idIn = document.createElement('input');
+    idIn.type = 'text';
+    idIn.placeholder = '子表 ID（网址里 tab= 后那段）';
+    idIn.style.cssText = 'border:1px solid #ddd;border-radius:8px;padding:9px 10px;font-size:14px;box-sizing:border-box';
+    const addBtn = mkBtn('添加子表', '#0b57d0', '#fff');
+    addBtn.style.width = '100%';
+    addBtn.onclick = function () {
+      const nm = nameIn.value.trim();
+      const id = idIn.value.trim();
+      if (!nm || !id) { alert('名称和子表 ID 都要填'); return; }
+      const cur = loadSheets();
+      if (cur.some(function (s) { return s.id === id; })) { alert('该子表 ID 已存在'); return; }
+      cur.push({ id: id, name: nm });
+      saveSheets(cur);
+      nameIn.value = '';
+      idIn.value = '';
+      renderList();
+    };
+    addWrap.append(nameIn, idIn, addBtn);
+
+    const closeBtn = mkBtn('完成', '#f2f2f2', '#333');
+    closeBtn.style.width = '100%';
+    closeBtn.onclick = function () { mask.remove(); };
+
+    box.append(h, list, addWrap, closeBtn);
+    mask.append(box);
     document.body.append(mask);
   }
 
   function resetConf() {
-    GM_setValue('file_id', '');
-    GM_setValue('sheet_id', '');
-    GM_setValue('token', '');
-    alert('已清空表格 ID、子表 ID 和 token，下次操作会重新提示输入');
+    const mask = mkMask();
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;width:100%;max-width:340px;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box';
+    const h = document.createElement('div');
+    h.textContent = '确认清空全部配置？';
+    h.style.cssText = 'font-size:16px;font-weight:600;color:#222';
+    const tip = document.createElement('div');
+    tip.textContent = '将清空表格 ID、token 和全部子表，下次操作需重新配置。此操作不可撤销。';
+    tip.style.cssText = 'font-size:13px;color:#666;line-height:1.6';
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+    const cancel = mkBtn('取消', '#fff', '#666');
+    cancel.style.border = '1px solid #ccc';
+    cancel.onclick = function () { mask.remove(); };
+    const ok = mkBtn('确认清空', '#d93025', '#fff');
+    ok.onclick = function () {
+      GM_setValue('file_id', '');
+      GM_setValue('token', '');
+      GM_setValue('sheets', '[]');
+      mask.remove();
+      showToast('已清空全部配置');
+    };
+    bar.append(cancel, ok);
+    box.append(h, tip, bar);
+    mask.append(box);
+    document.body.append(mask);
   }
 
   function showMenu() {
     const mask = document.createElement('div');
     mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px';
     const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;width:100%;max-width:320px;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box';
+    box.style.cssText = 'background:#fff;width:100%;max-width:320px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:auto';
     const h = document.createElement('div');
     h.textContent = '随手记';
     h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:4px;color:#222;text-align:center';
     box.append(h);
-    const items = [
-      { t: '记录到表格', fn: doRecord },
-      { t: '查询正文', fn: doQuery },
-      { t: '重置配置', fn: resetConf }
-    ];
+
+    const sheets = loadSheets();
+    const items = [];
+    sheets.forEach(function (s) {
+      items.push({ t: '记录到' + s.name, fn: function () { doRecord(s); } });
+    });
+    sheets.forEach(function (s) {
+      items.push({ t: '查询' + s.name, fn: function () { doQuery(s); } });
+    });
+    items.push({ t: '管理子表', fn: manageSheets });
+    items.push({ t: '重置配置', fn: resetConf });
+
+    if (!sheets.length) {
+      const tip = document.createElement('div');
+      tip.textContent = '还没有子表，先点「管理子表」添加';
+      tip.style.cssText = 'font-size:13px;color:#999;text-align:center;padding:4px 0';
+      box.append(tip);
+    }
+
     items.forEach(function (it) {
       const b = mkBtn(it.t, '#f2f2f2', '#333');
       b.style.width = '100%';
