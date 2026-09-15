@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         网页净化：去广告 + 站点弹窗拦截
+// @name         去广告
 // @namespace    https://github.com/HypoDear/userscripts
 // @version      2.0
 // @description  全站屏蔽谷歌广告；小红书额外拦截登录遮罩、解锁滚动、阻止唤起 App
