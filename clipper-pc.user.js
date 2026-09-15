@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         剪藏
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      5.2
-// @description  提取网页正文，编辑后写入在线表格空白行；支持多子表、按标题关键词查询正文
+// @version      6.0
+// @description  提取网页正文，编辑后写入在线表格空白行；自动拉取子表勾选、按标题关键词查询正文
 // @author       HypoDear
 // @match        *://*/*
 // @noframes
@@ -151,6 +151,15 @@
           }
         },
         onerror: function () { reject('网络请求失败'); }
+      });
+    });
+  }
+
+  function fetchSheetList(base) {
+    return mcpCall(base, 'sheet.get_sheet_info', { file_id: base.fileID }).then(function (r) {
+      const arr = (r && r.sheets) || [];
+      return arr.map(function (s) {
+        return { id: s.sheet_id, name: s.sheet_name, hidden: !!s.hidden };
       });
     });
   }
@@ -350,85 +359,93 @@
   }
 
   function manageSheets() {
+    const base = getBase();
+    if (!base) return;
+
     const mask = mkMask();
     const box = document.createElement('div');
     box.style.cssText = 'background:#fff;width:100%;max-width:420px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:auto';
 
     const h = document.createElement('div');
-    h.textContent = '管理子表';
+    h.textContent = '选择要纳入的子表';
     h.style.cssText = 'font-size:16px;font-weight:600;color:#222;text-align:center';
+
+    const tip = document.createElement('div');
+    tip.textContent = '正在拉取子表列表...';
+    tip.style.cssText = 'font-size:13px;color:#888;text-align:center;padding:12px 0';
 
     const list = document.createElement('div');
     list.style.cssText = 'display:flex;flex-direction:column;gap:8px';
 
-    function renderList() {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;border-top:1px solid #eee;padding-top:10px';
+    const reloadBtn = mkBtn('重新拉取', '#f2f2f2', '#333');
+    const doneBtn = mkBtn('完成', '#0b57d0', '#fff');
+    doneBtn.onclick = function () { mask.remove(); };
+    bar.append(reloadBtn, doneBtn);
+
+    box.append(h, tip, list, bar);
+    mask.append(box);
+    document.body.append(mask);
+
+    function renderRemote(remote) {
       list.innerHTML = '';
-      const sheets = loadSheets();
-      if (!sheets.length) {
-        const empty = document.createElement('div');
-        empty.textContent = '暂无子表，请在下方添加';
-        empty.style.cssText = 'font-size:13px;color:#999;text-align:center;padding:8px 0';
-        list.append(empty);
-      }
-      sheets.forEach(function (s, idx) {
+      const chosen = loadSheets();
+      const chosenIds = chosen.map(function (s) { return s.id; });
+
+      remote.forEach(function (s) {
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:8px;border:1px solid #eee;border-radius:8px;padding:8px 10px';
         const info = document.createElement('div');
         info.style.cssText = 'flex:1;min-width:0';
         const nm = document.createElement('div');
-        nm.textContent = s.name;
-        nm.style.cssText = 'font-size:14px;color:#222;font-weight:500';
+        nm.textContent = s.name + (s.hidden ? '（隐藏）' : '');
+        nm.style.cssText = 'font-size:14px;color:' + (s.hidden ? '#aaa' : '#222') + ';font-weight:500';
         const id = document.createElement('div');
         id.textContent = s.id;
         id.style.cssText = 'font-size:12px;color:#999;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
         info.append(nm, id);
-        const del = mkBtn('删除', '#fff', '#d93025');
-        del.style.cssText += 'border:1px solid #f0c0bc;padding:6px 10px;font-size:13px';
-        del.onclick = function () {
+
+        const added = chosenIds.indexOf(s.id) >= 0;
+        const btn = added ? mkBtn('移除', '#fff', '#d93025') : mkBtn('添加', '#0b57d0', '#fff');
+        if (added) { btn.style.cssText += 'border:1px solid #f0c0bc;padding:6px 12px;font-size:13px'; }
+        else { btn.style.cssText += 'padding:6px 12px;font-size:13px'; }
+        btn.onclick = function () {
           const cur = loadSheets();
-          cur.splice(idx, 1);
+          const at = cur.map(function (x) { return x.id; }).indexOf(s.id);
+          if (at >= 0) { cur.splice(at, 1); }
+          else { cur.push({ id: s.id, name: s.name }); }
           saveSheets(cur);
-          renderList();
+          renderRemote(remote);
         };
-        row.append(info, del);
+
+        row.append(info, btn);
         list.append(row);
       });
+
+      const chosenNow = loadSheets();
+      tip.textContent = '共 ' + remote.length + ' 个子表，已纳入 ' + chosenNow.length + ' 个';
+      tip.style.color = '#888';
     }
-    renderList();
 
-    const addWrap = document.createElement('div');
-    addWrap.style.cssText = 'display:flex;flex-direction:column;gap:8px;border-top:1px solid #eee;padding-top:10px';
-    const nameIn = document.createElement('input');
-    nameIn.type = 'text';
-    nameIn.placeholder = '显示名称，如：知识库';
-    nameIn.style.cssText = 'border:1px solid #ddd;border-radius:8px;padding:9px 10px;font-size:14px;box-sizing:border-box';
-    const idIn = document.createElement('input');
-    idIn.type = 'text';
-    idIn.placeholder = '子表 ID（网址里 tab= 后那段）';
-    idIn.style.cssText = 'border:1px solid #ddd;border-radius:8px;padding:9px 10px;font-size:14px;box-sizing:border-box';
-    const addBtn = mkBtn('添加子表', '#0b57d0', '#fff');
-    addBtn.style.width = '100%';
-    addBtn.onclick = function () {
-      const nm = nameIn.value.trim();
-      const id = idIn.value.trim();
-      if (!nm || !id) { alert('名称和子表 ID 都要填'); return; }
-      const cur = loadSheets();
-      if (cur.some(function (s) { return s.id === id; })) { alert('该子表 ID 已存在'); return; }
-      cur.push({ id: id, name: nm });
-      saveSheets(cur);
-      nameIn.value = '';
-      idIn.value = '';
-      renderList();
-    };
-    addWrap.append(nameIn, idIn, addBtn);
+    function load() {
+      tip.textContent = '正在拉取子表列表...';
+      tip.style.color = '#888';
+      list.innerHTML = '';
+      fetchSheetList(base).then(function (remote) {
+        if (!remote.length) {
+          tip.textContent = '该表格下没有子表';
+          return;
+        }
+        renderRemote(remote);
+      }).catch(function (e) {
+        tip.textContent = '拉取失败：' + e;
+        tip.style.color = '#d93025';
+      });
+    }
 
-    const closeBtn = mkBtn('完成', '#f2f2f2', '#333');
-    closeBtn.style.width = '100%';
-    closeBtn.onclick = function () { mask.remove(); };
-
-    box.append(h, list, addWrap, closeBtn);
-    mask.append(box);
-    document.body.append(mask);
+    reloadBtn.onclick = load;
+    load();
   }
 
   function resetConf() {
@@ -483,7 +500,7 @@
 
     if (!sheets.length) {
       const tip = document.createElement('div');
-      tip.textContent = '还没有子表，先点「管理子表」添加';
+      tip.textContent = '还没有子表，先点「管理子表」选择';
       tip.style.cssText = 'font-size:13px;color:#999;text-align:center;padding:4px 0';
       box.append(tip);
     }
