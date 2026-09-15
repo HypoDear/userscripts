@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         剪藏
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      5.1
+// @version      5.2
 // @description  提取网页正文，编辑后写入在线表格空白行；支持多子表、按标题关键词查询正文
 // @author       HypoDear
 // @match        *://*/*
@@ -115,6 +115,14 @@
     return { fileID: base.fileID, token: base.token, sheetID: sheet.id, sheetName: sheet.name };
   }
 
+  function isEmptyRangeErr(e) {
+    const s = String(e || '');
+    return s.indexOf('60872') >= 0 ||
+           s.indexOf('missing data') >= 0 ||
+           s.indexOf('not found') >= 0 ||
+           s.indexOf('code: -12') >= 0;
+  }
+
   function mcpCall(conf, toolName, args) {
     return new Promise(function (resolve, reject) {
       const payload = {
@@ -155,6 +163,22 @@
     }).then(function (r) {
       const csv = (r.csv_data || '').replace(/\n+$/, '');
       return csv === '' ? [] : csv.split('\n');
+    }).catch(function (e) {
+      if (isEmptyRangeErr(e)) return [];
+      throw e;
+    });
+  }
+
+  function readCell(conf, row, col) {
+    return mcpCall(conf, 'sheet.get_cell_data', {
+      file_id: conf.fileID, sheet_id: conf.sheetID,
+      start_row: row, start_col: col, end_row: row, end_col: col,
+      return_csv: true
+    }).then(function (r) {
+      return (r.csv_data || '').replace(/\n+$/, '');
+    }).catch(function (e) {
+      if (isEmptyRangeErr(e)) return '';
+      throw e;
     });
   }
 
@@ -281,17 +305,13 @@
     const kw = prompt('在「' + conf.sheetName + '」中查询标题关键词：', '');
     if (!kw) return;
     readColumn(conf, 1).then(function (titles) {
+      if (!titles.length) { alert('「' + conf.sheetName + '」还没有任何记录'); return; }
       let matchRow = -1;
       for (let i = 0; i < titles.length; i++) {
         if (titles[i].includes(kw)) { matchRow = i; break; }
       }
       if (matchRow < 0) { alert('未找到包含「' + kw + '」的记录'); return; }
-      return mcpCall(conf, 'sheet.get_cell_data', {
-        file_id: conf.fileID, sheet_id: conf.sheetID,
-        start_row: matchRow, start_col: 2, end_row: matchRow, end_col: 2,
-        return_csv: true
-      }).then(function (r) {
-        const bodyText = (r.csv_data || '').replace(/\n+$/, '');
+      return readCell(conf, matchRow, 2).then(function (bodyText) {
         showResult(titles[matchRow], bodyText);
       });
     }).catch(function (e) {
