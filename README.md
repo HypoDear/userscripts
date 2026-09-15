@@ -1,2 +1,62 @@
 # userscripts
-Personal userscripts: web clipper to Tencent Docs sheet, mobile popup and ad blocker
+
+个人油猴脚本集。包含网页剪藏到在线表格、移动端弹窗与广告拦截。
+
+## 脚本清单
+
+| 脚本 | 平台 | 用途 |
+|---|---|---|
+| `clipper-mobile.user.js` | iOS Safari + Userscripts App | 提取网页正文为纯文字，预览后一键发送到快捷指令记录 |
+| `clipper-pc.user.js` | Windows + Tampermonkey | 提取网页正文，编辑后直接写入在线表格；支持按标题查询正文 |
+| `adguarder-mobile.user.js` | 移动端浏览器（含 iOS Safari） | 全站屏蔽谷歌广告；小红书额外拦截登录遮罩与 App 唤起 |
+
+## 安装
+
+点击对应脚本的 raw 链接，油猴扩展会自动识别并弹出安装提示。
+
+- Windows：安装 [Tampermonkey](https://www.tampermonkey.net/)
+- iOS Safari：安装 Userscripts App
+
+## 首次配置
+
+两个剪藏脚本都不在代码中保存任何私有信息。首次使用时会弹框要求填写，之后存于本地：
+
+- `clipper-pc.user.js`：需填写表格 ID、子表 ID、以及对应环境的 Authorization token
+- `clipper-mobile.user.js`：无需任何凭证，仅负责提取正文并递交给快捷指令
+
+随时可通过脚本菜单中的「重置配置」清空已保存的信息。
+
+## 设计说明
+
+### 移动端与桌面端的分工
+
+移动端脚本只做「提取正文 → 转纯文字 → 递交快捷指令」，不接触接口与凭证，写入由 iOS 快捷指令完成。桌面端脚本则自行完成读写全流程。
+
+### 正文提取
+
+两个剪藏脚本使用相同策略：
+
+1. 先在 DOM 副本上移除页头、页尾、导航、侧栏、评论、推荐、广告等干扰节点
+2. 交由 Readability 抽取文章主体
+3. 按块级元素切分段落，段间以空行分隔，保留原文段落结构
+4. 行内空白归一、压缩多余空行
+
+提取结果在预览面板中可编辑，残留噪音可手动删除后再提交。
+
+### 表格结构
+
+写入的表格为三列：
+
+| A | B | C |
+|---|---|---|
+| 时间戳 | 标题 | 正文 |
+
+写入前先读取 A 列已用行数，据此定位首个空白行，避免覆盖既有数据。
+
+### 字数限制
+
+单元格上限约 2 万字符。正文超限时直接中断并提示，不做截断或拆分。
+
+## 许可
+
+MIT
