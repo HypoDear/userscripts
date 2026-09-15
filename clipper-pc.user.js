@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         随手记到在线表格
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      3.2
+// @version      4.0
 // @description  提取网页正文，编辑后写入在线表格空白行；支持按标题关键词查询正文
 // @author       HypoDear
 // @match        *://*/*
@@ -11,18 +11,13 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @connect      docs.qq.com
-// @connect      saas.docs.qq.com
 // @require      https://unpkg.com/@mozilla/readability@0.5.0/Readability.js
 // ==/UserScript==
 
 (function () {
   'use strict';
 
-  const ENVS = {
-    docs: { key: 'docs', label: 'docs', url: 'https://docs.qq.com/openapi/mcp' },
-    saas: { key: 'saas', label: 'saas docs', url: 'https://saas.docs.qq.com/api/v6/open/agent/mcp' }
-  };
-
+  const API_URL = 'https://docs.qq.com/openapi/mcp';
   const MAX_CHARS = 20000;
 
   const JUNK_SELECTORS = [
@@ -93,14 +88,14 @@
     return v ? v.trim() : '';
   }
 
-  function getConf(env) {
-    const fileID = askOnce('file_' + env.key, '首次配置：请输入 ' + env.label + ' 的表格文件 ID（纯 ID，不带网址）');
+  function getConf() {
+    const fileID = askOnce('file_id', '首次配置：请输入表格文件 ID（纯 ID，不带网址）');
     if (!fileID) return null;
-    const sheetID = askOnce('sheet_' + env.key, '首次配置：请输入 ' + env.label + ' 的子表 ID（网址里 tab= 后那段）');
+    const sheetID = askOnce('sheet_id', '首次配置：请输入子表 ID（网址里 tab= 后那段）');
     if (!sheetID) return null;
-    const token = askOnce('token_' + env.key, '首次配置：请输入 ' + env.label + ' 的 Authorization token');
+    const token = askOnce('token', '首次配置：请输入 Authorization token');
     if (!token) return null;
-    return { url: env.url, fileID: fileID, sheetID: sheetID, token: token, label: env.label };
+    return { fileID: fileID, sheetID: sheetID, token: token };
   }
 
   function mcpCall(conf, toolName, args) {
@@ -113,7 +108,7 @@
       };
       GM_xmlhttpRequest({
         method: 'POST',
-        url: conf.url,
+        url: API_URL,
         headers: {
           'Authorization': conf.token,
           'Content-Type': 'application/json',
@@ -172,8 +167,8 @@
     return b;
   }
 
-  function doRecord(env) {
-    const conf = getConf(env);
+  function doRecord() {
+    const conf = getConf();
     if (!conf) return;
     const picked = extractText();
     showRecordPanel(conf, picked.title, picked.body);
@@ -187,7 +182,7 @@
     box.style.cssText = 'background:#fff;width:100%;max-width:600px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;box-sizing:border-box';
 
     const h = document.createElement('div');
-    h.textContent = '记录到 ' + conf.label;
+    h.textContent = '记录到表格';
     h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:10px;color:#222';
 
     const titleInput = document.createElement('input');
@@ -258,8 +253,8 @@
     titleInput.focus();
   }
 
-  function doQuery(env) {
-    const conf = getConf(env);
+  function doQuery() {
+    const conf = getConf();
     if (!conf) return;
     const kw = prompt('请输入标题关键词：', '');
     if (!kw) return;
@@ -315,11 +310,9 @@
   }
 
   function resetConf() {
-    ['docs', 'saas'].forEach(function (k) {
-      GM_setValue('file_' + k, '');
-      GM_setValue('sheet_' + k, '');
-      GM_setValue('token_' + k, '');
-    });
+    GM_setValue('file_id', '');
+    GM_setValue('sheet_id', '');
+    GM_setValue('token', '');
     alert('已清空表格 ID、子表 ID 和 token，下次操作会重新提示输入');
   }
 
@@ -333,11 +326,9 @@
     h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:4px;color:#222;text-align:center';
     box.append(h);
     const items = [
-      { t: '记录到 docs', fn: function () { doRecord(ENVS.docs); } },
-      { t: '记录到 saas', fn: function () { doRecord(ENVS.saas); } },
-      { t: '查询 docs', fn: function () { doQuery(ENVS.docs); } },
-      { t: '查询 saas', fn: function () { doQuery(ENVS.saas); } },
-      { t: '重置配置', fn: function () { resetConf(); } }
+      { t: '记录到表格', fn: doRecord },
+      { t: '查询正文', fn: doQuery },
+      { t: '重置配置', fn: resetConf }
     ];
     items.forEach(function (it) {
       const b = mkBtn(it.t, '#f2f2f2', '#333');
