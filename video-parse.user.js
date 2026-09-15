@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         视频解析
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      1.0
-// @description  腾讯/爱奇艺视频播放页悬浮球，一键在新标签打开 base url + 编码后的原始视频链接；支持移动端与桌面
+// @version      2.0
+// @description  腾讯/爱奇艺视频播放页悬浮球，点击选择解析源，在新标签打开解析链接；内置多源可手动回退
 // @author       HypoDear
 // @match        *://*.qq.com/*
 // @match        *://*.iqiyi.com/*
@@ -14,16 +14,13 @@
 (function () {
   'use strict';
 
-  const KEY = '__vjump_base__';
   const BALL_ID = '__vjump_ball__';
 
-  function getBase() {
-    try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; }
-  }
-
-  function setBase(v) {
-    try { localStorage.setItem(KEY, v); } catch (e) {}
-  }
+  const SOURCES = [
+    { name: 'ckplayer（默认）', url: 'https://www.ckplayer.vip/jiexi/?url=' },
+    { name: 'playm3u8', url: 'https://www.playm3u8.cn/jiexi.php?url=' },
+    { name: 'xmflv', url: 'https://jx.xmflv.com/?url=' }
+  ];
 
   function isVideoPage() {
     const h = location.hostname;
@@ -41,59 +38,53 @@
     }
   }
 
-  function jump() {
-    const base = getBase();
-    if (!base) { showConfig(); return; }
+  function parseWith(base) {
     openTab(base + encodeURIComponent(location.href));
   }
 
   function mkMask() {
     const mask = document.createElement('div');
-    mask.style.cssText = 'position:fixed!important;inset:0!important;background:rgba(0,0,0,.5)!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:16px!important;box-sizing:border-box!important';
+    mask.style.cssText = 'position:fixed!important;inset:0!important;background:rgba(0,0,0,.4)!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:16px!important;box-sizing:border-box!important';
     mask.onclick = function (e) { if (e.target === mask) mask.remove(); };
     return mask;
   }
 
-  function showConfig() {
+  function showMenu() {
     const mask = mkMask();
     const box = document.createElement('div');
-    box.style.cssText = 'background:#fff!important;width:340px!important;max-width:calc(100vw - 32px)!important;box-sizing:border-box!important;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:12px';
+    box.style.cssText = 'background:#fff!important;width:300px!important;max-width:calc(100vw - 32px)!important;box-sizing:border-box!important;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px';
 
     const h = document.createElement('div');
-    h.textContent = '配置解析 Base URL';
-    h.style.cssText = 'font-size:16px;font-weight:600;color:#222';
+    h.textContent = '选择解析源';
+    h.style.cssText = 'font-size:16px;font-weight:600;color:#222;text-align:center';
 
     const tip = document.createElement('div');
-    tip.textContent = '跳转地址 = Base URL + 编码后的当前视频链接';
-    tip.style.cssText = 'font-size:12px;color:#888;line-height:1.6';
+    tip.textContent = '在新标签打开，若打不开可回来换一个源';
+    tip.style.cssText = 'font-size:12px;color:#888;text-align:center;line-height:1.6;margin-bottom:2px';
 
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.value = getBase();
-    input.placeholder = '如：https://jx.xxx.com/?url=';
-    input.style.cssText = 'width:100%!important;box-sizing:border-box!important;max-width:none!important;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;color:#333';
+    box.append(h, tip);
 
-    const bar = document.createElement('div');
-    bar.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
-
-    const save = document.createElement('button');
-    save.textContent = '保存';
-    save.style.cssText = 'padding:9px 16px;border:none;border-radius:8px;background:#0b57d0;color:#fff;font-size:14px;cursor:pointer';
-    save.onclick = function () {
-      setBase(input.value.trim());
-      mask.remove();
-    };
+    SOURCES.forEach(function (s, i) {
+      const b = document.createElement('button');
+      b.textContent = s.name;
+      const bg = i === 0 ? '#0b57d0' : '#f2f2f2';
+      const color = i === 0 ? '#fff' : '#333';
+      b.style.cssText = 'width:100%!important;box-sizing:border-box!important;padding:11px 14px;border:none;border-radius:8px;background:' + bg + ';color:' + color + ';font-size:14px;cursor:pointer';
+      b.onclick = function () {
+        mask.remove();
+        parseWith(s.url);
+      };
+      box.append(b);
+    });
 
     const cancel = document.createElement('button');
     cancel.textContent = '取消';
-    cancel.style.cssText = 'padding:9px 16px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#666;font-size:14px;cursor:pointer';
+    cancel.style.cssText = 'width:100%!important;box-sizing:border-box!important;padding:11px 14px;border:1px solid #ccc;border-radius:8px;background:#fff;color:#666;font-size:14px;cursor:pointer;margin-top:2px';
     cancel.onclick = function () { mask.remove(); };
+    box.append(cancel);
 
-    bar.append(save, cancel);
-    box.append(h, tip, input, bar);
     mask.append(box);
     document.body.append(mask);
-    input.focus();
   }
 
   function injectBall() {
@@ -101,29 +92,13 @@
     const ball = document.createElement('div');
     ball.id = BALL_ID;
     ball.textContent = '解析';
-    ball.style.cssText = 'position:fixed!important;right:16px!important;bottom:120px!important;z-index:2147483646!important;width:52px!important;height:52px!important;border-radius:50%!important;background:#0b57d0!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:15px!important;box-shadow:0 4px 12px rgba(0,0,0,.3)!important;cursor:pointer!important;user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important';
+    ball.style.cssText = 'position:fixed!important;left:16px!important;bottom:120px!important;z-index:2147483646!important;width:52px!important;height:52px!important;border-radius:50%!important;background:#e8532b!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:15px!important;box-shadow:0 4px 12px rgba(0,0,0,.3)!important;cursor:pointer!important;user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important';
 
-    let timer = null;
-    let longPressed = false;
-
-    function start() {
-      longPressed = false;
-      timer = setTimeout(function () { longPressed = true; showConfig(); }, 600);
-    }
-
-    function end(e) {
-      clearTimeout(timer);
-      if (!longPressed) {
-        if (e && e.cancelable) e.preventDefault();
-        jump();
-      }
-    }
-
-    ball.addEventListener('touchstart', start, { passive: true });
-    ball.addEventListener('touchend', end);
-    ball.addEventListener('mousedown', start);
-    ball.addEventListener('mouseup', end);
-    ball.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); });
+    ball.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      showMenu();
+    });
 
     document.body.append(ball);
   }
