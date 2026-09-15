@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         随手记到在线表格
+// @name         剪藏
 // @namespace    https://github.com/HypoDear/userscripts
 // @version      4.0
 // @description  提取网页正文，编辑后写入在线表格空白行；支持按标题关键词查询正文
