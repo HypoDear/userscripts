@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         视频解析
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      2.0
-// @description  腾讯/爱奇艺视频播放页悬浮球，点击选择解析源，在新标签打开解析链接；内置多源可手动回退
+// @version      2.1
+// @description  腾讯/爱奇艺视频播放页悬浮球，点击选择解析源，在新标签打开解析链接；内置多源可手动换源
 // @author       HypoDear
 // @match        *://*.qq.com/*
 // @match        *://*.iqiyi.com/*
@@ -17,9 +17,9 @@
   const BALL_ID = '__vjump_ball__';
 
   const SOURCES = [
-    { name: 'ckplayer（默认）', url: 'https://www.ckplayer.vip/jiexi/?url=' },
-    { name: 'playm3u8', url: 'https://www.playm3u8.cn/jiexi.php?url=' },
-    { name: 'xmflv', url: 'https://jx.xmflv.com/?url=' }
+    { name: '源1', url: 'https://www.ckplayer.vip/jiexi/?url=' },
+    { name: '源2', url: 'https://www.playm3u8.cn/jiexi.php?url=' },
+    { name: '源3', url: 'https://jx.xmflv.com/?url=' }
   ];
 
   function isVideoPage() {
@@ -55,7 +55,7 @@
     box.style.cssText = 'background:#fff!important;width:300px!important;max-width:calc(100vw - 32px)!important;box-sizing:border-box!important;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px';
 
     const h = document.createElement('div');
-    h.textContent = '选择解析源';
+    h.textContent = '选择源';
     h.style.cssText = 'font-size:16px;font-weight:600;color:#222;text-align:center';
 
     const tip = document.createElement('div');
@@ -91,8 +91,8 @@
     if (document.getElementById(BALL_ID)) return;
     const ball = document.createElement('div');
     ball.id = BALL_ID;
-    ball.textContent = '解析';
-    ball.style.cssText = 'position:fixed!important;left:16px!important;bottom:120px!important;z-index:2147483646!important;width:52px!important;height:52px!important;border-radius:50%!important;background:#e8532b!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:15px!important;box-shadow:0 4px 12px rgba(0,0,0,.3)!important;cursor:pointer!important;user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important';
+    ball.textContent = '换源';
+    ball.style.cssText = 'position:fixed!important;right:16px!important;bottom:100px!important;z-index:2147483646!important;width:52px!important;height:52px!important;border-radius:50%!important;background:#e8532b!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:15px!important;box-shadow:0 4px 12px rgba(0,0,0,.3)!important;cursor:pointer!important;user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important';
 
     ball.addEventListener('click', function (e) {
       e.preventDefault();
