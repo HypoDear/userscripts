@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         剪藏
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      6.0
+// @version      6.1
 // @description  提取网页正文，编辑后写入在线表格空白行；自动拉取子表勾选、按标题关键词查询正文
 // @author       HypoDear
 // @match        *://*/*
@@ -19,6 +19,12 @@
 
   const API_URL = 'https://docs.qq.com/openapi/mcp';
   const MAX_CHARS = 20000;
+
+  const BOX_BASE = 'background:#fff!important;box-sizing:border-box!important;flex:0 0 auto!important;border-radius:12px;padding:16px;display:flex;flex-direction:column;';
+  function boxWidth(px) {
+    return 'width:' + px + 'px!important;max-width:calc(100vw - 32px)!important;';
+  }
+  const FIELD_RESET = 'width:100%!important;box-sizing:border-box!important;min-width:0!important;max-width:none!important;';
 
   const JUNK_SELECTORS = [
     'header', 'footer', 'nav', 'aside',
@@ -213,13 +219,13 @@
     const b = document.createElement('button');
     b.textContent = text;
     b.style.cssText = 'padding:9px 14px;border:none;border-radius:8px;background:' + bg +
-                      ';color:' + color + ';font-size:14px;cursor:pointer';
+                      ';color:' + color + ';font-size:14px;cursor:pointer;flex:0 0 auto';
     return b;
   }
 
   function mkMask() {
     const mask = document.createElement('div');
-    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px';
+    mask.style.cssText = 'position:fixed!important;inset:0!important;background:rgba(0,0,0,.5)!important;z-index:2147483647!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:16px!important;box-sizing:border-box!important';
     mask.onclick = function (e) { if (e.target === mask) mask.remove(); };
     return mask;
   }
@@ -235,7 +241,7 @@
     const mask = mkMask();
 
     const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;width:100%;max-width:600px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;box-sizing:border-box';
+    box.style.cssText = BOX_BASE + boxWidth(600) + 'max-height:82vh;';
 
     const h = document.createElement('div');
     h.textContent = '记录到「' + conf.sheetName + '」';
@@ -245,14 +251,14 @@
     titleInput.type = 'text';
     titleInput.value = title || '';
     titleInput.placeholder = '请输入标题';
-    titleInput.style.cssText = 'border:1px solid #ddd;border-radius:8px;padding:9px 10px;font-size:14px;color:#333;margin-bottom:8px;box-sizing:border-box';
+    titleInput.style.cssText = 'border:1px solid #ddd;border-radius:8px;padding:9px 10px;font-size:14px;color:#333;margin-bottom:8px;' + FIELD_RESET;
 
     const count = document.createElement('div');
     count.style.cssText = 'font-size:12px;color:#888;margin-bottom:8px';
 
     const ta = document.createElement('textarea');
     ta.value = body;
-    ta.style.cssText = 'flex:1;min-height:220px;resize:none;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;line-height:1.7;color:#333;user-select:text;white-space:pre-wrap;box-sizing:border-box';
+    ta.style.cssText = 'flex:1 1 auto!important;min-height:220px;resize:none;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;line-height:1.7;color:#333;user-select:text;white-space:pre-wrap;' + FIELD_RESET;
 
     function refreshCount() {
       const len = ta.value.trim().length;
@@ -263,7 +269,7 @@
     ta.addEventListener('input', refreshCount);
 
     const bar = document.createElement('div');
-    bar.style.cssText = 'margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap';
+    bar.style.cssText = 'margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;flex:0 0 auto';
 
     const saveBtn = mkBtn('记录', '#0b57d0', '#fff');
     saveBtn.onclick = function () {
@@ -331,7 +337,7 @@
   function showResult(title, body) {
     const mask = mkMask();
     const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;width:100%;max-width:600px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;box-sizing:border-box';
+    box.style.cssText = BOX_BASE + boxWidth(600) + 'max-height:82vh;';
     const h = document.createElement('div');
     h.textContent = title || '(无标题)';
     h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:6px;color:#222';
@@ -341,9 +347,9 @@
     const ta = document.createElement('textarea');
     ta.value = body;
     ta.readOnly = true;
-    ta.style.cssText = 'flex:1;min-height:220px;resize:none;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;line-height:1.7;color:#333;user-select:text;white-space:pre-wrap;box-sizing:border-box';
+    ta.style.cssText = 'flex:1 1 auto!important;min-height:220px;resize:none;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;line-height:1.7;color:#333;user-select:text;white-space:pre-wrap;' + FIELD_RESET;
     const bar = document.createElement('div');
-    bar.style.cssText = 'margin-top:12px;display:flex;gap:8px;justify-content:flex-end';
+    bar.style.cssText = 'margin-top:12px;display:flex;gap:8px;justify-content:flex-end;flex:0 0 auto';
     const copyBtn = mkBtn('复制', '#0b57d0', '#fff');
     copyBtn.onclick = function () {
       navigator.clipboard.writeText(body);
@@ -364,7 +370,7 @@
 
     const mask = mkMask();
     const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;width:100%;max-width:420px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:auto';
+    box.style.cssText = BOX_BASE + boxWidth(420) + 'max-height:82vh;gap:10px;overflow:auto;';
 
     const h = document.createElement('div');
     h.textContent = '选择要纳入的子表';
@@ -451,7 +457,7 @@
   function resetConf() {
     const mask = mkMask();
     const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;width:100%;max-width:340px;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box';
+    box.style.cssText = BOX_BASE + boxWidth(340) + 'padding:18px;gap:14px;';
     const h = document.createElement('div');
     h.textContent = '确认清空全部配置？';
     h.style.cssText = 'font-size:16px;font-weight:600;color:#222';
@@ -478,10 +484,10 @@
   }
 
   function showMenu() {
-    const mask = document.createElement('div');
-    mask.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px';
+    const mask = mkMask();
+    mask.style.background = 'rgba(0,0,0,.4)';
     const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;width:100%;max-width:320px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:auto';
+    box.style.cssText = BOX_BASE + boxWidth(320) + 'max-height:82vh;gap:10px;overflow:auto;';
     const h = document.createElement('div');
     h.textContent = '剪藏';
     h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:4px;color:#222;text-align:center';
@@ -507,19 +513,18 @@
 
     items.forEach(function (it) {
       const b = mkBtn(it.t, '#f2f2f2', '#333');
-      b.style.width = '100%';
+      b.style.cssText += ';width:100%!important';
       b.onclick = function () { mask.remove(); it.fn(); };
       box.append(b);
     });
     mask.append(box);
-    mask.onclick = function (e) { if (e.target === mask) mask.remove(); };
     document.body.append(mask);
   }
 
   function showToast(msg) {
     const t = document.createElement('div');
     t.textContent = msg;
-    t.style.cssText = 'position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:6px;z-index:2147483647;font-size:14px';
+    t.style.cssText = 'position:fixed!important;bottom:40px!important;left:50%!important;transform:translateX(-50%)!important;background:#333!important;color:#fff!important;padding:10px 20px!important;border-radius:6px!important;z-index:2147483647!important;font-size:14px!important';
     document.body.append(t);
     setTimeout(function () { t.remove(); }, 2000);
   }
@@ -529,7 +534,7 @@
     const btn = document.createElement('div');
     btn.id = '__note_btn__';
     btn.textContent = '剪藏';
-    btn.style.cssText = 'position:fixed;right:16px;bottom:100px;z-index:2147483646;width:52px;height:52px;border-radius:50%;background:#0b57d0;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,.3);cursor:pointer;user-select:none';
+    btn.style.cssText = 'position:fixed!important;right:16px!important;bottom:100px!important;z-index:2147483646!important;width:52px!important;height:52px!important;border-radius:50%!important;background:#0b57d0!important;color:#fff!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:15px!important;box-shadow:0 4px 12px rgba(0,0,0,.3)!important;cursor:pointer!important;user-select:none!important';
     btn.onclick = function () { showMenu(); };
     document.body.append(btn);
   }
