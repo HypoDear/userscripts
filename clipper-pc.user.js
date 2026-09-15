@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         剪藏
 // @namespace    https://github.com/HypoDear/userscripts
-// @version      5.0
+// @version      5.1
 // @description  提取网页正文，编辑后写入在线表格空白行；支持多子表、按标题关键词查询正文
 // @author       HypoDear
 // @match        *://*/*
@@ -446,7 +446,7 @@
     const box = document.createElement('div');
     box.style.cssText = 'background:#fff;width:100%;max-width:320px;max-height:82vh;border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;overflow:auto';
     const h = document.createElement('div');
-    h.textContent = '随手记';
+    h.textContent = '剪藏';
     h.style.cssText = 'font-size:16px;font-weight:600;margin-bottom:4px;color:#222;text-align:center';
     box.append(h);
 
@@ -491,8 +491,8 @@
     if (document.getElementById('__note_btn__')) return;
     const btn = document.createElement('div');
     btn.id = '__note_btn__';
-    btn.textContent = '记';
-    btn.style.cssText = 'position:fixed;right:16px;bottom:100px;z-index:2147483646;width:52px;height:52px;border-radius:50%;background:#0b57d0;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 4px 12px rgba(0,0,0,.3);cursor:pointer;user-select:none';
+    btn.textContent = '剪藏';
+    btn.style.cssText = 'position:fixed;right:16px;bottom:100px;z-index:2147483646;width:52px;height:52px;border-radius:50%;background:#0b57d0;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,.3);cursor:pointer;user-select:none';
     btn.onclick = function () { showMenu(); };
     document.body.append(btn);
   }
