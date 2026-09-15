@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         网页正文提取 → 剪藏
+// @name         剪藏-记
 // @namespace    https://github.com/HypoDear/userscripts
 // @version      1.3
 // @description  提取网页正文为纯文字，预览后一键发送到快捷指令记录
