@@ -57,7 +57,3 @@ Readability 未命中时回退为整页文本。
 ### 去广告的实现
 
 在 `document-start` 阶段注入样式表隐藏广告位，并以 MutationObserver 持续清理动态插入的节点。小红书还需解除遮罩带来的滚动锁，脚本会重置 `html` 与 `body` 的 `overflow`、`position`、`height`。
-
-## 许可
-
-MIT
